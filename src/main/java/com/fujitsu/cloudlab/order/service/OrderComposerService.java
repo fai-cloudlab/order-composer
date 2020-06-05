@@ -5,6 +5,7 @@ import com.fujitsu.cloudlab.commons.exception.ApiException;
 import com.fujitsu.cloudlab.commons.util.ResponseUtil;
 import com.fujitsu.cloudlab.offer.json.model.Offer;
 import com.fujitsu.cloudlab.offer.json.model.OffersList;
+import com.fujitsu.cloudlab.order.json.model.Cash;
 import com.fujitsu.cloudlab.order.json.model.OrderInput;
 import com.fujitsu.cloudlab.order.json.model.OrderResponse;
 import com.fujitsu.cloudlab.order.json.model.Price;
@@ -61,7 +62,6 @@ public class OrderComposerService {
     orderData.setOrderStatus(AppConstants.CREATED);
     
     orderData.setOrderData(gson.toJson(order));
-
     Offer offer = offersList.getOffers().get(0);
     orderData.setCurrencyCode(offer.getOfferPrice().getCurrency());
     orderData.setOrderTotalPrice(offer.getOfferPrice().getValue().toString());
@@ -73,8 +73,6 @@ public class OrderComposerService {
     orderData.setOrderCreationUtcTs(creationTs);
     
     retailOrderDataRepository.save(orderData);
-
-    System.out.println(order);
     return order;
   }
 
@@ -89,8 +87,17 @@ public class OrderComposerService {
     price.setCurrency(offer.getOfferPrice().getCurrency());
     price.setValue(offer.getOfferPrice().getValue());
     order.setFormOfPayment(orderInput.getFormOfPayment());
+    order.getFormOfPayment().setPaymentReferenceId(UUID.randomUUID().toString().substring(0, 15));
+    if(orderInput.getFormOfPayment().getPaymentMethod().getPaymentMethodType().equals("Cash")) {
+    	Cash cash = new Cash();
+    	cash.setCashReceiptId("CASH"+UUID.randomUUID().toString().substring(0, 5));
+    	cash.setTerminalId("ID"+UUID.randomUUID().toString().substring(0, 1));
+    	order.getFormOfPayment().getPaymentMethod().setCash(cash);
+    	order.getFormOfPayment().getPaymentMethod().setPaymentCard(null);
+    }else {
+    	order.getFormOfPayment().getPaymentMethod().setCash(null);
+    }
     order.setProducts(mapProducts(Arrays.asList(offer.getProduct())));
-
     return order;
   }
 
@@ -117,7 +124,6 @@ private Price mapPrice(com.fujitsu.cloudlab.offer.json.model.@Valid Price produc
 
 private OffersList retrieveOffer(final String offerId, HttpHeaders headers)
       throws ApiException {
-	System.out.println(offerId);
     return ResponseUtil.process(
         OffersList.class,
         restTemplate.exchange(
